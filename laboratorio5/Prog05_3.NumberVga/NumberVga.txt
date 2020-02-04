@@ -1,0 +1,139 @@
+/ * Archivo: vector_add.c
+ * *
+ * Propósito: Implementar la adición de vectores
+ * *
+ * Compilar: gcc -g -Wall -o vector_add vector_add.c
+ * Ejecutar: ./vector_add
+ * *
+ * Entrada: el orden de los vectores, n, y los vectores x e y
+ * Salida: el vector suma z = x + y
+ * *
+ * Nota:
+ * Si el programa detecta un error (orden del vector <= 0 o malloc
+ * fallo), imprime un mensaje y termina
+ * *
+ * IPP: Sección 3.4.6 (p. 109)
+ * /
+
+# include  < stdio.h >
+# include  < stdlib.h >
+
+nulo  Read_n ( int * n_p);
+void  Allocate_vectors ( doble x_pp **, doble y_pp **, doble z_pp **, int n);
+void  Read_vector ( doble a [], int n, char vec_name []);
+vacío  Print_vector ( double b [], int n, char title []);
+vacío  Vector_sum ( doble x [], doble y [], doble z [], int n);
+
+/ * ------------------------------------------------ --------------------- * /
+int  main ( nulo ) {
+   int n;
+   doble * x, * y, * z;
+
+   Leer_n (& n);
+   Asignar_vectores (& x, & y, & z, n);
+
+   Read_vector (x, n, " x " );
+   Read_vector (y, n, " y " );
+
+   Vector_sum (x, y, z, n);
+
+   Print_vector (z, n, " La suma es " );
+
+   libre (x);
+   libre (y);
+   libre (z);
+
+   devuelve  0 ;
+}   / * principal * /
+
+/ * ------------------------------------------------ ---------------------
+ * Función: Read_n
+ * Propósito: Obtener el orden de los vectores de stdin
+ * Out arg: n_p: el orden de los vectores
+ * *
+ * Errores: si n <= 0, el programa termina
+ * /
+nulo  Read_n ( int * n_p / * out * / ) {
+   printf ( " ¿Cuál es el orden de los vectores? \ n " );
+   scanf ( " % d " , n_p);
+   if (* n_p <= 0 ) {
+      fprintf (stderr, "El orden debe ser positivo \ n " );
+      salida (- 1 );
+   }
+}   / * Leer_n * /
+
+/ * ------------------------------------------------ ---------------------
+ * Función: Asignar_vectores
+ * Propósito: Asignar almacenamiento para los vectores.
+ * En arg: n: el orden de los vectores
+ * Args de salida: x_pp, y_pp, z_pp: punteros al almacenamiento para los vectores
+ * *
+ * Errores: si falla uno de los mallocs, el programa finaliza
+ * /
+vacío  Allocate_vectors (
+      doble ** x_pp   / * fuera * / ,
+      doble ** y_pp   / * fuera * / ,
+      doble ** z_pp   / * out * / ,
+      int        n      / * in   * / ) {
+   * x_pp = ( doble *) malloc (n * sizeof ( doble ));
+   * y_pp = ( doble *) malloc (n * sizeof ( doble ));
+   * z_pp = ( doble *) malloc (n * sizeof ( doble ));
+   if (* x_pp == NULL || * y_pp == NULL || * z_pp == NULL ) {
+      fprintf (stderr, " No se pueden asignar vectores \ n " );
+      salida (- 1 );
+   }
+}   / * Asignar_vectores * /
+
+/ * ------------------------------------------------ ---------------------
+ * Función: Read_vector
+ * Propósito: Leer un vector de stdin
+ * En args: n: orden del vector
+ * vec_name: nombre del vector (p. ej., x)
+ * Fuera arg: a: el vector a leer en
+ * /
+nulo  Read_vector (
+      doble   un []          / * out * / ,
+      int      n            / * en   * / ,
+      char     vec_name []   / * en   * / ) {
+   int i;
+   printf ( " Ingrese el vector % s \ n " , vec_name);
+   para (i = 0 ; i <n; i ++)
+      scanf ( " % lf " , y a [i]);
+}   / * Read_vector * /
+
+/ * ------------------------------------------------ ---------------------
+ * Función: Print_vector
+ * Propósito: imprimir el contenido de un vector
+ * En args: b: el vector a imprimir
+ * n: el orden del vector
+ * título: título para imprimir
+ * /
+vacío  Print_vector (
+      doble   b []      / * en * / ,
+      int      n        / * en * / ,
+          título de char [] / * en * / ) {
+   int i;
+   printf ( " % s \ n " , título);
+   para (i = 0 ; i <n; i ++)
+      printf ( " % f  " , b [i]);
+   printf ( " \ n " );
+}   / * Print_vector * /
+
+/ * ------------------------------------------------ ---------------------
+ * Función: Vector_sum
+ * Propósito: Agregar dos vectores
+ * En args: x: el primer vector que se agregará
+ * y: el segundo vector que se agregará
+ * n: el orden de los vectores
+ * Fuera arg: z: el vector suma
+ * /
+vacío  Vector_sum (
+      doble   x []   / * en   * / ,
+      doble   y []   / * en   * / ,
+      doble   z []   / * fuera * / ,
+      int      n     / * in   * / ) {
+   int i;
+
+   para (i = 0 ; i <n; i ++)
+      z [i] = x [i] + y [i];
+}   / * Vector_sum * /

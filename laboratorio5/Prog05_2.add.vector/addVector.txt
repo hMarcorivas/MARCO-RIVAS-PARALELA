@@ -1,0 +1,300 @@
+/ * Archivo: mpi_vector_add.c
+ * *
+ * Propósito: Implementar la suma de vectores paralelos usando un bloque
+* distribución de los vectores. Esta versión también
+ * ilustra el uso de MPI_Scatter y MPI_Gather.
+ * *
+ * Compilar: mpicc -g -Wall -o mpi_vector_add mpi_vector_add.c
+ * Ejecutar: mpiexec -n <comm_sz> ./vector_add
+ * *
+ * Entrada: el orden de los vectores, n, y los vectores x e y
+ * Salida: el vector suma z = x + y
+ * *
+ * Notas:
+ * 1. El orden de los vectores, n, debe ser igualmente divisible
+ * por comm_sz
+ * 2. DEPURAR compilar bandera.
+* 3. Este programa realiza una comprobación de errores bastante extensa. Cuando
+ * se detecta un error, se imprime un mensaje y los procesos
+* dejar. Los errores detectados son valores incorrectos del vector.
+ * orden (negativo o no divisible por comm_sz), y
+ * fallas malloc.
+ * *
+ * IPP: Sección 3.4.6 (págs. 109 y siguientes)
+ * /
+# include  < stdio.h >
+# include  < stdlib.h >
+# include  < mpi.h >
+
+nulo  Check_for_error ( int local_ok, char fname [], char message [],
+      MPI_Comm comm);
+nulo  Read_n ( int * n_p, int * local_n_p, int my_rank, int comm_sz,
+      MPI_Comm comm);
+void  Allocate_vectors ( double ** local_x_pp, double ** local_y_pp,
+      double ** local_z_pp, int local_n, MPI_Comm comm);
+void  Read_vector ( double local_a [], int local_n, int n, char vec_name [],
+      int my_rank, MPI_Comm comm);
+void  Print_vector ( double local_b [], int local_n, int n, char title [],
+      int my_rank, MPI_Comm comm);
+nulo  Paralelo_vector_sum ( doble local_x [], doble local_y [],
+      doble local_z [], int local_n);
+
+
+/ * ------------------------------------------------ ------------------- * /
+int  main ( nulo ) {
+   int n, local_n;
+   int comm_sz, my_rank;
+   doble * local_x, * local_y, * local_z;
+   MPI_Comm comm;
+
+   MPI_Init ( NULL , NULL );
+   comm = MPI_COMM_WORLD;
+   MPI_Comm_size (comm, & comm_sz);
+   MPI_Comm_rank (comm, & my_rank);
+
+   Read_n (& n, & local_n, my_rank, comm_sz, comm);
+#   ifdef DEBUG
+   printf ( " Proceso % d > n = % d , local_n = % d \ n " , my_rank, n, local_n);
+#   endif
+   Allocate_vectors (& local_x, & local_y, & local_z, local_n, comm);
+
+   Read_vector (local_x, local_n, n, " x " , my_rank, comm);
+   Print_vector (local_x, local_n, n, " x is " , my_rank, comm);
+   Read_vector (local_y, local_n, n, " y " , my_rank, comm);
+   Print_vector (local_y, local_n, n, " y is " , my_rank, comm);
+
+   Paralelo_vector_sum (local_x, local_y, local_z, local_n);
+   Print_vector (local_z, local_n, n, " La suma es " , my_rank, comm);
+
+   libre (local_x);
+   libre (local_y);
+   libre (local_z);
+
+   MPI_Finalize ();
+
+   devuelve  0 ;
+}   / * principal * /
+
+/ * ------------------------------------------------ -------------------
+ * Función: Check_for_error
+* Propósito: Verificar si algún proceso ha encontrado un error. Si es así,
+* imprimir mensaje y finalizar todos los procesos. De otra manera,
+ * Continuar la ejecución.
+ * En args: local_ok: 1 si el proceso de llamada ha encontrado un error, 0
+ * de lo contrario
+ * fname: nombre de la función que llama a Check_for_error
+ * mensaje: mensaje para imprimir si hay un error
+ * comm: comunicador que contiene procesos que llaman
+ * Check_for_error: debe ser MPI_COMM_WORLD.
+ * *
+ * Nota:
+ * El comunicador que contiene los procesos que llaman Check_for_error
+ * debe ser MPI_COMM_WORLD.
+ * /
+nulo  Check_for_error (
+      int        local_ok    / * en * / ,
+      char       fname []     / * en * / ,
+            mensaje de char []   / * en * / ,
+      MPI_Comm comm        / * in * / ) {
+   int ok;
+
+   MPI_Allreduce (& local_ok, & ok, 1 , MPI_INT, MPI_MIN, comm);
+   si (ok == 0 ) {
+      int my_rank;
+      MPI_Comm_rank (comm, & my_rank);
+      if (my_rank == 0 ) {
+         fprintf (stderr, " Proc % d > In % s , % s \ n " , my_rank, fname,
+               mensaje);
+         fflush (stderr);
+      }
+      MPI_Finalize ();
+      salida (- 1 );
+   }
+}   / * Check_for_error * /
+
+
+/ * ------------------------------------------------ -------------------
+ * Función: Read_n
+ * Propósito: Obtener el orden de los vectores de stdin en el proceso 0 y
+ * Difusión a otros procesos.
+ * En args: my_rank: rango de proceso en comunicador
+ * comm_sz: número de procesos en comunicador
+ * comm: comunicador que contiene todos los procesos
+ * llamando a Read_n
+ * Out args: n_p: valor global de n
+ * local_n_p: valor local de n = n / comm_sz
+ * *
+ * Errores: n debe ser positivo y divisible por comm_sz
+ * /
+nulo  Read_n (
+      int * n_p         / * out * / ,
+      int * local_n_p   / * out * / ,
+      int        my_rank     / * en   * / ,
+      int        comm_sz     / * en   * / ,
+      MPI_Comm comm        / * in   * / ) {
+   int local_ok = 1 ;
+   char * fname = " Leer_n " ;
+
+   if (my_rank == 0 ) {
+      printf ( " ¿Cuál es el orden de los vectores? \ n " );
+      scanf ( " % d " , n_p);
+   }
+   MPI_Bcast (n_p, 1 , MPI_INT, 0 , comm);
+   if (* n_p <= 0 || * n_p% comm_sz! = 0 ) local_ok = 0 ;
+   Check_for_error (local_ok, fname,
+         " n debería ser> 0 y divisible por comm_sz " , comm);
+   * local_n_p = * n_p / comm_sz;
+}   / * Leer_n * /
+
+
+/ * ------------------------------------------------ -------------------
+ * Función: Asignar_vectores
+ * Propósito: Asignar almacenamiento para x, y y z
+ * En args: local_n: el tamaño de los vectores locales
+ * comm: el comunicador que contiene los procesos de llamada
+ * Out args: local_x_pp, local_y_pp, local_z_pp: apuntadores a la memoria
+ * bloques a asignar para vectores locales
+ * *
+ * Errores: una o más de las llamadas a malloc falla
+ * /
+vacío  Allocate_vectors (
+      doble ** local_x_pp   / * out * / ,
+      doble ** local_y_pp   / * out * / ,
+      doble ** local_z_pp   / * out * / ,
+      int         local_n      / * en   * / ,
+      MPI_Comm comm         / * in   * / ) {
+   int local_ok = 1 ;
+   Char * fname = " Allocate_vectors " ;
+
+   * local_x_pp = malloc (local_n * sizeof ( doble ));
+   * local_y_pp = malloc (local_n * sizeof ( doble ));
+   * local_z_pp = malloc (local_n * sizeof ( doble ));
+
+   if (* local_x_pp == NULL || * local_y_pp == NULL ||
+       * local_z_pp == NULL ) local_ok = 0 ;
+   Check_for_error (local_ok, fname, " No se pueden asignar los vectores locales " ,
+         com)
+}   / * Asignar_vectores * /
+
+
+/ * ------------------------------------------------ -------------------
+ * Función: Read_vector
+ * Propósito: Leer un vector de stdin en el proceso 0 y distribuir
+ * entre los procesos que utilizan una distribución en bloque.
+ * En args: local_n: tamaño de los vectores locales
+ * n: tamaño del vector global
+ * vec_name: nombre del vector que se está leyendo (por ejemplo, "x")
+ * my_rank: rango del proceso de llamada en comunicación
+ * comm: comunicador que contiene procesos de llamada
+ * Fuera arg: local_a: lectura de vector local
+ * *
+ * Errores: si el malloc en el proceso 0 para almacenamiento temporal
+ * falla el programa termina
+ * *
+ * Nota:
+ * Esta función asume una distribución de bloques y el orden
+ * del vector divisible por comm_sz.
+ * /
+nulo  Read_vector (
+      doble     local_a []    / * fuera * / ,
+      int        local_n      / * en   * / ,
+      int        n            / * en   * / ,
+      char       vec_name []   / * en   * / ,
+      int        my_rank      / * en   * / ,
+      MPI_Comm comm         / * in   * / ) {
+
+   doble * a = NULL ;
+   int i;
+   int local_ok = 1 ;
+   char * fname = " Read_vector " ;
+
+   if (my_rank == 0 ) {
+      a = malloc (n * sizeof ( doble ));
+      if (a == NULL ) local_ok = 0 ;
+      Check_for_error (local_ok, fname, " No se puede asignar el vector temporal " ,
+            com)
+      printf ( " Ingrese el vector % s \ n " , vec_name);
+      para (i = 0 ; i <n; i ++)
+         scanf ( " % lf " , y a [i]);
+      MPI_Scatter (a, local_n, MPI_DOUBLE, local_a, local_n, MPI_DOUBLE, 0 ,
+         com)
+      libre (a);
+   } más {
+      Check_for_error (local_ok, fname, " No se puede asignar el vector temporal " ,
+            com)
+      MPI_Scatter (a, local_n, MPI_DOUBLE, local_a, local_n, MPI_DOUBLE, 0 ,
+         com)
+   }
+}   / * Read_vector * /
+
+
+/ * ------------------------------------------------ -------------------
+ * Función: Print_vector
+ * Propósito: imprimir un vector que tenga una distribución de bloque en stdout
+ * En args: local_b: almacenamiento local para el vector a imprimir
+ * local_n: orden de vectores locales
+ * n: orden del vector global (local_n * comm_sz)
+ * título: título que precede a la impresión
+ * comm: comunicador que contiene procesos que llaman
+ * Print_vector
+ * *
+ * Error: si el proceso 0 no puede asignar almacenamiento temporal para
+ * el vector completo, el programa termina.
+ * *
+ * Nota:
+ * Asume que el orden del vector es divisible por la cantidad de
+ * procesos
+ * /
+vacío  Print_vector (
+      doble     local_b []   / * en * / ,
+      int        local_n     / * en * / ,
+      int        n           / * en * / ,
+            título de char []     / * en * / ,
+      int        my_rank     / * en * / ,
+      MPI_Comm comm        / * in * / ) {
+
+   doble * b = NULL ;
+   int i;
+   int local_ok = 1 ;
+   char * fname = " Print_vector " ;
+
+   if (my_rank == 0 ) {
+      b = malloc (n * sizeof ( doble ));
+      if (b == NULL ) local_ok = 0 ;
+      Check_for_error (local_ok, fname, " No se puede asignar el vector temporal " ,
+            com)
+      MPI_Gather (local_b, local_n, MPI_DOUBLE, b, local_n, MPI_DOUBLE,
+            0 , comunicación);
+      printf ( " % s \ n " , título);
+      para (i = 0 ; i <n; i ++)
+         printf ( " % f  " , b [i]);
+      printf ( " \ n " );
+      libre (b);
+   } más {
+      Check_for_error (local_ok, fname, " No se puede asignar el vector temporal " ,
+            com)
+      MPI_Gather (local_b, local_n, MPI_DOUBLE, b, local_n, MPI_DOUBLE, 0 ,
+         com)
+   }
+}   / * Print_vector * /
+
+
+/ * ------------------------------------------------ -------------------
+ * Función: Parallel_vector_sum
+ * Propósito: Agregar un vector que ha sido distribuido entre los procesos
+ * En args: local_x: almacenamiento local de uno de los vectores que se agregan
+ * local_y: almacenamiento local para el segundo vector que se agrega
+ * local_n: el número de componentes en local_x, local_y,
+ * y local_z
+ * Out arg: local_z: almacenamiento local para la suma de los dos vectores
+ * /
+nulo  Paralelo_vector_sum (
+      doble   local_x []   / * en   * / ,
+      doble   local_y []   / * en   * / ,
+      doble   local_z []   / * fuera * / ,
+      int      local_n     / * en   * / ) {
+   int local_i;
+
+   para (local_i = 0 ; local_i <local_n; local_i ++)
+      local_z [local_i] = local_x [local_i] + local_y [local_i];
+}   / * Parallel_vector_sum * /

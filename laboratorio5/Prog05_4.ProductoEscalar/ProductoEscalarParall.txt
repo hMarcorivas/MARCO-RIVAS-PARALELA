@@ -1,0 +1,99 @@
+# incluye  " mpi.h "
+# include  < vector >
+# include  < cstdlib >
+# include  < iostream >
+
+usando el  espacio de nombres  estándar ;
+
+int  main ( int argc, char * argv []) {
+    int tama, rango, tamaño;
+
+    MPI_Init (& argc, & argv);
+    MPI_Comm_size (MPI_COMM_WORLD, y tamaño);
+    MPI_Comm_rank (MPI_COMM_WORLD, y rango);
+
+    if (argc < 2 ) {
+        if (rango == 0 ) {
+            cout << " No se ha especificado número de elementos, multiplo "
+            		" de la cantidad de entrada, por defecto sera " << tamaño * 100 ;
+            cout << " \ n Uso: <ejecutable> <cantidad> " << endl;
+        }
+        tama = tamaño * 100 ;
+    } más {
+        tama = atoi (argv [ 1 ]);
+        si (tama <tamaño)
+        	tama = tamaño;
+        más {
+            int i = 1 , num = tamaño;
+            while (tama> num) {
+                ++ i;
+                num = tamaño * i;
+            }
+            if (tama! = num) {
+                si (rango == 0 )
+                    cout << " Cantidad cambiada a " << num << endl;
+                tama = num;
+            }
+        }
+    }
+
+    // Creación y relleno de los vectores
+    vector < largo > VectorA, VectorB, VectorALocal, VectorBLocal;
+    VectorA. cambiar el tamaño (tama, 0 );
+    VectorB. cambiar el tamaño (tama, 0 );
+    VectorALocal. cambiar el tamaño (tama / size, 0 );
+    VectorBLocal. cambiar el tamaño (tama / size, 0 );
+    if (rango == 0 ) {
+        for ( long i = 0 ; i <tama; ++ i) {
+            VectorA [i] = i + 1 ; // Vector A recibe valores 1, 2, 3, ..., tama
+            VectorB [i] = (i + 1 ) * 10 ; // Vector B recibe valores 10, 20, 30, ..., tama * 10
+        }
+    }
+
+    // Repartimos los valores del vector A
+    MPI_Scatter (& VectorA [ 0 ], // Valores a compartir
+            tama / size, // Cantidad que se enviando a cada proceso
+            MPI_LONG, // Tipo del dato que se enviara
+            & VectorALocal [ 0 ], // Variable donde recibir los datos
+            tama / size, // Cantidad que recibe cada proceso
+            MPI_LONG, // Tipo de dato que se recibira
+            0 ,   // proceso principal que reparte los datos
+            MPI_COMM_WORLD); // Comunicador (En este caso, el global)
+    // Repartimos los valores del vector B
+    MPI_Scatter (& VectorB [ 0 ],
+            tama / tamaño,
+            MPI_LONG,
+            & VectorBLocal [ 0 ],
+            tama / tamaño,
+            MPI_LONG,
+            0 ,
+            MPI_COMM_WORLD);
+
+    // Cálculo de la multiplicación escalar entre vectores
+    producto largo = 0 ;
+    for ( long i = 0 ; i <tama / size; ++ i) {
+        producto + = VectorALocal [i] * VectorBLocal [i];
+    }
+    largo total;
+
+    // Reunimos los datos en un solo proceso, aplicando una operación
+    // aritmetica, en este caso, la suma.
+    MPI_Reduce (& producto, // Elemento a enviar
+            & total, // Variable donde se almacena la reunión de los datos
+            1 , // Cantidad de datos a reunir
+            MPI_LONG, // Tipo de dato que se reunira
+            MPI_SUM, // Operacion aritmetica a aplicar
+            0 , // Proceso que recibira los datos
+            MPI_COMM_WORLD); // Comunicador
+
+    si (rango == 0 )
+        cout << " Total = " << total << endl;
+
+	// Terminamos la ejecución de los procesos, despues de esto solo existira
+	// el proceso 0
+	// ¡Ojo! Esto no significa que los demas procesos no ejecuten el resto
+	// de codigo despues de "Finalize", es conveniente garantizarnos con una
+	// condicion si vamos a ejecutar mas codigo (Por ejemplo, con "if (rank == 0)".
+    MPI_Finalize ();
+    devuelve  0 ;
+}
